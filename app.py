@@ -11,8 +11,8 @@ st.title("📊 Dashboard Comercial - Agroinsumos")
 # =========================
 @st.cache_data
 def load_data():
-    mov = pd.read_excel("2024mov.xlsx")
-    rec = pd.read_excel("recep2024.xlsx")
+   mov = pd.read_excel(os.path.join(base_path, "2024mov.xlsx"))
+rec = pd.read_excel(os.path.join(base_path, "recep2024.xlsx"))
 
     mov.columns = mov.columns.str.strip()
     rec.columns = rec.columns.str.strip()
