@@ -41,7 +41,6 @@ año_sel = st.sidebar.selectbox("Año", sorted(años))
 productos = mov[col_producto].dropna().unique()
 prod_sel = st.sidebar.selectbox("Producto (opcional)", ["Todos"] + list(productos))
 
-# ⚠️ IMPORTANTE: usar copy() + astype(str)
 df = mov[mov["Año"] == año_sel].copy()
 df[col_tipo] = df[col_tipo].astype(str)
 
@@ -76,15 +75,22 @@ top = (
     .head(20)
 )
 
-fig_top = px.bar(
-    x=top.values,
-    y=top.index,
-    orientation="h",
-    title="Top productos (ventas)",
-)
+if len(top) > 0:
+    top_df = top.reset_index()
+    top_df.columns = ["producto", "cantidad"]
 
-fig_top.update_layout(height=500)
-st.plotly_chart(fig_top, use_container_width=True)
+    fig_top = px.bar(
+        top_df,
+        x="cantidad",
+        y="producto",
+        orientation="h",
+        title="Top productos (ventas)",
+    )
+
+    fig_top.update_layout(height=500)
+    st.plotly_chart(fig_top, use_container_width=True)
+else:
+    st.warning("No hay datos de ventas para mostrar")
 
 # ---------------- TOP POR AÑO ----------------
 st.markdown("### 📅 Evolución de ventas por año")
@@ -97,14 +103,17 @@ ventas_anuales = (
     .size()
 )
 
-fig_year = px.line(
-    x=ventas_anuales.index,
-    y=ventas_anuales.values,
-    markers=True,
-    title="Ventas por año"
-)
+if len(ventas_anuales) > 0:
+    fig_year = px.line(
+        x=ventas_anuales.index,
+        y=ventas_anuales.values,
+        markers=True,
+        title="Ventas por año"
+    )
 
-st.plotly_chart(fig_year, use_container_width=True)
+    st.plotly_chart(fig_year, use_container_width=True)
+else:
+    st.warning("No hay datos históricos de ventas")
 
 # ---------------- FLUJO (SANKEY) ----------------
 st.markdown("### 🔁 Flujo de operaciones")
@@ -112,20 +121,21 @@ st.markdown("### 🔁 Flujo de operaciones")
 flow = df.groupby(col_tipo).size().reset_index()
 flow.columns = ["tipo", "cantidad"]
 
-labels = list(flow["tipo"])
-values = list(flow["cantidad"])
+if len(flow) > 0:
+    labels = ["Operaciones"] + list(flow["tipo"])
+    values = list(flow["cantidad"])
 
-fig_sankey = go.Figure(data=[go.Sankey(
-    node=dict(label=["Operaciones"] + labels),
-    link=dict(
-        source=[0] * len(labels),
-        target=list(range(1, len(labels) + 1)),
-        value=values
-    )
-)])
+    fig_sankey = go.Figure(data=[go.Sankey(
+        node=dict(label=labels),
+        link=dict(
+            source=[0] * len(values),
+            target=list(range(1, len(values) + 1)),
+            value=values
+        )
+    )])
 
-fig_sankey.update_layout(height=400)
-st.plotly_chart(fig_sankey, use_container_width=True)
+    fig_sankey.update_layout(height=400)
+    st.plotly_chart(fig_sankey, use_container_width=True)
 
 # ---------------- DETALLE ----------------
 st.markdown("### 📋 Detalle de datos")
