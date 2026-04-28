@@ -14,6 +14,12 @@ import os
 import plotly.express as px
 import plotly.graph_objects as go
 
+import streamlit as st
+import pandas as pd
+import os
+import plotly.express as px
+import plotly.graph_objects as go
+
 # ---------------- CONFIG ----------------
 st.set_page_config(page_title="Análisis Comercial", layout="wide")
 
@@ -22,14 +28,19 @@ st.markdown("## 📈 Análisis Comercial de Operaciones")
 # ---------------- LOAD ----------------
 @st.cache_data
 def load_data():
-    base_path = os.path.dirname(__file__)
-    mov = pd.read_excel(os.path.join(base_path, "2024mov.xlsx"))
-    rec = pd.read_excel(os.path.join(base_path, "recep2024.xlsx"))
+    # Leer archivos directamente (más seguro en Streamlit)
+    mov = pd.read_excel("2024mov.xlsx")
+    rec = pd.read_excel("recep2024.xlsx")
 
+    # Limpiar nombres de columnas
     mov.columns = mov.columns.str.strip()
     rec.columns = rec.columns.str.strip()
 
-    # Ajustá nombres si difieren
+    # Validar columna Fecha
+    if "Fecha" not in mov.columns:
+        st.error("❌ No se encontró la columna 'Fecha' en el archivo de movimientos")
+        st.stop()
+
     mov["Fecha"] = pd.to_datetime(mov["Fecha"], errors="coerce")
 
     return mov, rec
@@ -39,6 +50,9 @@ mov, rec = load_data()
 # ---------------- NORMALIZACIÓN ----------------
 col_producto = mov.columns[0]
 col_tipo = mov.columns[1]
+
+# Convertir a texto (SOLUCIÓN AL ERROR)
+mov[col_tipo] = mov[col_tipo].astype(str)
 
 mov["Año"] = mov["Fecha"].dt.year
 
@@ -61,7 +75,7 @@ st.markdown("### 📊 Indicadores Clave")
 
 col1, col2, col3, col4, col5 = st.columns(5)
 
-ventas = df[df[col_tipo].astype(str).str.contains("VENTA", case=False, na=False)]
+ventas = df[df[col_tipo].str.contains("VENTA", case=False, na=False)]
 traslados = df[df[col_tipo].str.contains("TRAS", case=False, na=False)]
 devol = df[df[col_tipo].str.contains("DEV", case=False, na=False)]
 
@@ -118,14 +132,11 @@ flow.columns = ["tipo", "cantidad"]
 labels = list(flow["tipo"])
 values = list(flow["cantidad"])
 
-source = [0]*len(values)
-target = list(range(len(values)))
-
 fig_sankey = go.Figure(data=[go.Sankey(
     node=dict(label=["Operaciones"] + labels),
     link=dict(
-        source=[0]*len(labels),
-        target=list(range(1, len(labels)+1)),
+        source=[0] * len(labels),
+        target=list(range(1, len(labels) + 1)),
         value=values
     )
 )])
