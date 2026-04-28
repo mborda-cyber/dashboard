@@ -32,6 +32,10 @@ mov, rec = load_data()
 col_producto = mov.columns[0]
 col_tipo = mov.columns[1]
 
+# 🔍 DEBUG: ver valores reales
+st.sidebar.markdown("### 🔍 Valores detectados en Tipo")
+st.sidebar.write(mov[col_tipo].dropna().unique()[:20])
+
 # ---------------- FILTROS ----------------
 st.sidebar.header("🔎 Filtros")
 
@@ -42,23 +46,25 @@ productos = mov[col_producto].dropna().unique()
 prod_sel = st.sidebar.selectbox("Producto (opcional)", ["Todos"] + list(productos))
 
 df = mov[mov["Año"] == año_sel].copy()
-df[col_tipo] = df[col_tipo].astype(str)
+df[col_tipo] = df[col_tipo].astype(str).str.upper().str.strip()
 
 if prod_sel != "Todos":
     df = df[df[col_producto] == prod_sel]
 
-# ---------------- FUNCION SEGURA ----------------
-def contains_safe(series, text):
-    return series.astype(str).str.contains(text, case=False, na=False)
+# ---------------- FUNCION FLEXIBLE ----------------
+def contiene(series, palabras):
+    series = series.astype(str).str.upper()
+    return series.str.contains("|".join(palabras), na=False)
+
+# 🔥 IMPORTANTE: detectar múltiples variantes reales
+ventas = df[contiene(df[col_tipo], ["VENTA", "VTA", "SALE"])]
+traslados = df[contiene(df[col_tipo], ["TRAS", "TRASLADO"])]
+devol = df[contiene(df[col_tipo], ["DEV", "DEVOL"])]
 
 # ---------------- KPIs ----------------
 st.markdown("### 📊 Indicadores Clave")
 
 col1, col2, col3, col4, col5 = st.columns(5)
-
-ventas = df[contains_safe(df[col_tipo], "VENTA")]
-traslados = df[contains_safe(df[col_tipo], "TRAS")]
-devol = df[contains_safe(df[col_tipo], "DEV")]
 
 col1.metric("Operaciones Totales", len(df))
 col2.metric("Ventas", len(ventas))
@@ -69,18 +75,12 @@ col5.metric("Productos Únicos", df[col_producto].nunique())
 # ---------------- TOP PRODUCTOS ----------------
 st.markdown("### 🏆 Productos con mayor movimiento")
 
-top = (
-    ventas[col_producto]
-    .value_counts()
-    .head(20)
-)
-
-if len(top) > 0:
-    top_df = top.reset_index()
-    top_df.columns = ["producto", "cantidad"]
+if len(ventas) > 0:
+    top = ventas[col_producto].value_counts().head(20).reset_index()
+    top.columns = ["producto", "cantidad"]
 
     fig_top = px.bar(
-        top_df,
+        top,
         x="cantidad",
         y="producto",
         orientation="h",
@@ -90,15 +90,15 @@ if len(top) > 0:
     fig_top.update_layout(height=500)
     st.plotly_chart(fig_top, use_container_width=True)
 else:
-    st.warning("No hay datos de ventas para mostrar")
+    st.warning("⚠️ No se detectaron ventas (revisar valores en columna Tipo)")
 
-# ---------------- TOP POR AÑO ----------------
+# ---------------- EVOLUCION ----------------
 st.markdown("### 📅 Evolución de ventas por año")
 
-mov[col_tipo] = mov[col_tipo].astype(str)
+mov[col_tipo] = mov[col_tipo].astype(str).str.upper().str.strip()
 
 ventas_anuales = (
-    mov[contains_safe(mov[col_tipo], "VENTA")]
+    mov[contiene(mov[col_tipo], ["VENTA", "VTA", "SALE"])]
     .groupby("Año")
     .size()
 )
@@ -113,9 +113,9 @@ if len(ventas_anuales) > 0:
 
     st.plotly_chart(fig_year, use_container_width=True)
 else:
-    st.warning("No hay datos históricos de ventas")
+    st.warning("⚠️ No se detectaron ventas históricas")
 
-# ---------------- FLUJO (SANKEY) ----------------
+# ---------------- FLUJO ----------------
 st.markdown("### 🔁 Flujo de operaciones")
 
 flow = df.groupby(col_tipo).size().reset_index()
