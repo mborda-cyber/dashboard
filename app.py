@@ -1,22 +1,5 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
-
-import streamlit as st
-import pandas as pd
-import os
-import plotly.express as px
-
-
-import streamlit as st
-import pandas as pd
-import os
-import plotly.express as px
-import plotly.graph_objects as go
-
-import streamlit as st
-import pandas as pd
-import os
 import plotly.express as px
 import plotly.graph_objects as go
 
@@ -28,33 +11,26 @@ st.markdown("## 📈 Análisis Comercial de Operaciones")
 # ---------------- LOAD ----------------
 @st.cache_data
 def load_data():
-    # Leer archivos directamente (más seguro en Streamlit)
     mov = pd.read_excel("2024mov.xlsx")
     rec = pd.read_excel("recep2024.xlsx")
 
-    # Limpiar nombres de columnas
     mov.columns = mov.columns.str.strip()
     rec.columns = rec.columns.str.strip()
 
-    # Validar columna Fecha
     if "Fecha" not in mov.columns:
-        st.error("❌ No se encontró la columna 'Fecha' en el archivo de movimientos")
+        st.error("❌ No se encontró la columna 'Fecha'")
         st.stop()
 
     mov["Fecha"] = pd.to_datetime(mov["Fecha"], errors="coerce")
+    mov["Año"] = mov["Fecha"].dt.year
 
     return mov, rec
 
 mov, rec = load_data()
 
-# ---------------- NORMALIZACIÓN ----------------
+# ---------------- COLUMNAS ----------------
 col_producto = mov.columns[0]
 col_tipo = mov.columns[1]
-
-# Convertir a texto (SOLUCIÓN AL ERROR)
-mov[col_tipo] = mov[col_tipo].astype(str)
-
-mov["Año"] = mov["Fecha"].dt.year
 
 # ---------------- FILTROS ----------------
 st.sidebar.header("🔎 Filtros")
@@ -65,19 +41,25 @@ año_sel = st.sidebar.selectbox("Año", sorted(años))
 productos = mov[col_producto].dropna().unique()
 prod_sel = st.sidebar.selectbox("Producto (opcional)", ["Todos"] + list(productos))
 
-df = mov[mov["Año"] == año_sel]
+# ⚠️ IMPORTANTE: usar copy() + astype(str)
+df = mov[mov["Año"] == año_sel].copy()
+df[col_tipo] = df[col_tipo].astype(str)
 
 if prod_sel != "Todos":
     df = df[df[col_producto] == prod_sel]
+
+# ---------------- FUNCION SEGURA ----------------
+def contains_safe(series, text):
+    return series.astype(str).str.contains(text, case=False, na=False)
 
 # ---------------- KPIs ----------------
 st.markdown("### 📊 Indicadores Clave")
 
 col1, col2, col3, col4, col5 = st.columns(5)
 
-ventas = df[df[col_tipo].str.contains("VENTA", case=False, na=False)]
-traslados = df[df[col_tipo].str.contains("TRAS", case=False, na=False)]
-devol = df[df[col_tipo].str.contains("DEV", case=False, na=False)]
+ventas = df[contains_safe(df[col_tipo], "VENTA")]
+traslados = df[contains_safe(df[col_tipo], "TRAS")]
+devol = df[contains_safe(df[col_tipo], "DEV")]
 
 col1.metric("Operaciones Totales", len(df))
 col2.metric("Ventas", len(ventas))
@@ -102,14 +84,15 @@ fig_top = px.bar(
 )
 
 fig_top.update_layout(height=500)
-
 st.plotly_chart(fig_top, use_container_width=True)
 
 # ---------------- TOP POR AÑO ----------------
 st.markdown("### 📅 Evolución de ventas por año")
 
+mov[col_tipo] = mov[col_tipo].astype(str)
+
 ventas_anuales = (
-    mov[mov[col_tipo].str.contains("VENTA", case=False, na=False)]
+    mov[contains_safe(mov[col_tipo], "VENTA")]
     .groupby("Año")
     .size()
 )
@@ -142,12 +125,10 @@ fig_sankey = go.Figure(data=[go.Sankey(
 )])
 
 fig_sankey.update_layout(height=400)
-
 st.plotly_chart(fig_sankey, use_container_width=True)
 
 # ---------------- DETALLE ----------------
 st.markdown("### 📋 Detalle de datos")
-
 st.dataframe(df, use_container_width=True)
 
 # ---------------- ORIGEN ----------------
