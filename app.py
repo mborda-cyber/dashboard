@@ -61,7 +61,7 @@ st.markdown("### 📊 Indicadores Clave")
 
 col1, col2, col3, col4, col5 = st.columns(5)
 
-ventas = df[df[col_tipo].str.contains("VENTA", case=False, na=False)]
+ventas = df[df[col_tipo].astype(str).str.contains("VENTA", case=False, na=False)]
 traslados = df[df[col_tipo].str.contains("TRAS", case=False, na=False)]
 devol = df[df[col_tipo].str.contains("DEV", case=False, na=False)]
 
